@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  /* SolvedSuite Brand Colors */
+  --primary: #1A2B3C;
+  --primary-dark: #0F1A24;
+  --primary-light: #2A3B4C;
+  
+  --secondary: #8DAA91;
+  --secondary-dark: #7A9A7E;
+  --secondary-light: #A0BAA4;
+  
+  --accent: #D4AF37;
+  --accent-dark: #C19F27;
+  --accent-light: #E0BF47;
+  
+  --background: #F9F9F9;
+  --background-dark: #EFEFEF;
+  --background-light: #FFFFFF;
+  
+  --foreground: #1A2B3C;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--primary);
+}
