@@ -87,7 +87,7 @@ export const AIMaterialsScout: React.FC = () => {
         return;
       }
 
-      // Use Deepseek (Gemini API) to parse and compare results
+      // Use Deepseek API to parse and compare results
       const systemInstruction = `You are an AI Materials Cost Scout. Analyze the provided search results to find cheaper material options.
       Identify exact or near matches (within a ${searchTolerance}% cost tolerance) for the material "${material.name}" (current cost: $${material.cost_per_unit.toFixed(4)} per ${material.unit_of_measurement}).
       For each option, extract the material name, price, unit, supplier, URL, and a brief description. Calculate the estimated savings compared to the current cost.
