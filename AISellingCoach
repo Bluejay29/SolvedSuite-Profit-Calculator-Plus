@@ -1,0 +1,250 @@
+import React, { useState, useCallback } from 'react';
+import { Layout } from '../../components/Layout';
+import { Input } from '../../components/Input';
+import { Button } from '../../components/Button';
+import { useUser } from '../../App';
+import { CREDIT_COSTS } from '../../constants';
+import { Link } from 'react-router-dom';
+import { geminiService } from '../../services/geminiService';
+
+interface SellingCoachResult {
+  productName: string;
+  bundleSuggestions: string[];
+  upsellIdeas: string[];
+  messagingAngles: { type: string; copy: string; }[];
+  objectionHandlingSnippets: string[];
+  valueFramingCopy: string;
+  optimizedOfferOptions: { title: string; description: string; }[];
+}
+
+export const AISellingCoach: React.FC = () => {
+  const { user, credits, fetchUserCredits, updateUserCredits, loading: userLoading } = useUser();
+  const [productName, setProductName] = useState('');
+  const [productDetails, setProductDetails] = useState('');
+  const [productPricing, setProductPricing] = useState<number>(0);
+  const [currentOffer, setCurrentOffer] = useState('');
+  const [targetCustomer, setTargetCustomer] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sellingCoachResult, setSellingCoachResult] = useState<SellingCoachResult | null>(null);
+
+  const customerTypes = ['Gift Buyers', 'Collectors', 'Parents', 'Businesses', 'Hobbyists', 'Eco-Conscious', 'Luxury Shoppers'];
+
+  const handleGetSellingAdvice = useCallback(async () => {
+    if (!user?.id || !productName.trim() || productPricing <= 0 || !targetCustomer) {
+      alert('Please fill in Product Name, Pricing, and Target Customer.');
+      return;
+    }
+    if (credits < CREDIT_COSTS.AI_CHAT_MESSAGE) {
+      alert('Not enough credits for AI selling advice. Please upgrade your plan or earn more credits.');
+      return;
+    }
+
+    setLoading(true);
+    setSellingCoachResult(null);
+
+    const prompt = `Provide selling advice for my handmade product based on the following details.
+      Product Name: "${productName}"
+      Product Details: "${productDetails}"
+      Pricing: $${productPricing.toFixed(2)}
+      Current Offer: "${currentOffer || 'None'}"
+      Target Customer: "${targetCustomer}"
+
+      Generate the advice in a JSON object conforming to the SellingCoachResult interface:
+      interface SellingCoachResult {
+        productName: string;
+        bundleSuggestions: string[]; // ideas to increase AOV
+        upsellIdeas: string[]; // add-ons, premium options
+        messagingAngles: { type: string; copy: string; }[]; // giftable, problem-solving, luxury, personalization, limited edition
+        objectionHandlingSnippets: string[];
+        valueFramingCopy: string; // "Why it costs what it costs" value framing
+        optimizedOfferOptions: { title: string; description: string; }[]; // 2-3 optimized offer options
+      }
+      
+      Ensure copy snippets are concise and compelling.`;
+
+    try {
+      const aiResponse = await geminiService.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          systemInstruction: `You are an AI Selling Coach. Provide smart selling strategies, bundle ideas, upsells, and messaging angles to increase sales and average order value, in JSON format.`,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      if (aiResponse && aiResponse.text) {
+        try {
+          const parsedResult: SellingCoachResult = JSON.parse(aiResponse.text.trim());
+          setSellingCoachResult(parsedResult);
+          await updateUserCredits(credits - CREDIT_COSTS.AI_CHAT_MESSAGE); // Deduct credit for AI use
+        } catch (parseError) {
+          console.error('Failed to parse AI response as JSON:', parseError, aiResponse.text);
+          alert('AI response could not be parsed. Please try again or refine your prompt.');
+        }
+      } else {
+        alert('AI did not provide a response. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating selling advice:', error);
+      alert('Failed to get AI selling advice. Please try again.');
+    } finally {
+      setLoading(false);
+      fetchUserCredits(); // Refresh credits
+    }
+  }, [user?.id, productName, productDetails, productPricing, currentOffer, targetCustomer, credits, updateUserCredits, fetchUserCredits]);
+
+  if (userLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-full">
+          <p className="text-navy text-xl">Loading AI Selling Coach...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout className="py-8 bg-pearl">
+      <h1 className="text-4xl font-bold text-navy mb-8">AI Selling Coach</h1>
+      <p className="text-lg text-gray-700 mb-6">
+        Improve how your product is packaged, positioned, and pitched with AI-driven strategies for offers, bundles, and upsells.
+      </p>
+
+      <div className="card mb-8">
+        <h2 className="text-2xl font-bold text-navy mb-4">Product & Offer Details</h2>
+        <Input
+          label="Product Name"
+          value={productName}
+          onChange={(e) => setProductName(e.target.value)}
+          placeholder="e.g., Artisan Leather Wallet"
+          className="mb-4"
+          required
+        />
+        <div>
+          <label htmlFor="productDetails" className="block text-navy text-sm font-semibold mb-2">
+            Product Details (Optional)
+          </label>
+          <textarea
+            id="productDetails"
+            className="textarea-field mb-4"
+            rows={3}
+            value={productDetails}
+            onChange={(e) => setProductDetails(e.target.value)}
+            placeholder="e.g., Hand-stitched from full-grain leather, minimalist design, fits 4 cards and cash."
+          ></textarea>
+        </div>
+        <Input
+          label="Product Pricing ($)"
+          type="number"
+          value={productPricing}
+          onChange={(e) => setProductPricing(parseFloat(e.target.value) || 0)}
+          min="0"
+          step="0.01"
+          className="mb-4"
+          required
+        />
+        <Input
+          label="Current Offer (if any, Optional)"
+          value={currentOffer}
+          onChange={(e) => setCurrentOffer(e.target.value)}
+          placeholder="e.g., Free shipping over $50"
+          className="mb-4"
+        />
+        <div className="mb-4">
+          <label htmlFor="targetCustomer" className="block text-navy text-sm font-semibold mb-2">
+            Target Customer
+          </label>
+          <select
+            id="targetCustomer"
+            className="select-field"
+            value={targetCustomer}
+            onChange={(e) => setTargetCustomer(e.target.value)}
+            required
+          >
+            <option value="">-- Select Target Customer --</option>
+            {customerTypes.map((customer) => (
+              <option key={customer} value={customer}>{customer}</option>
+            ))}
+          </select>
+        </div>
+        <Button onClick={handleGetSellingAdvice} isLoading={loading} variant="primary" className="w-full mt-4">
+          Get AI Selling Advice (Costs {CREDIT_COSTS.AI_CHAT_MESSAGE} Credit)
+        </Button>
+        {credits < CREDIT_COSTS.AI_CHAT_MESSAGE && (
+          <p className="text-red-500 text-sm mt-2">
+            You need at least {CREDIT_COSTS.AI_CHAT_MESSAGE} credit for AI selling advice.
+            <Link to="/pricing" className="ml-1 underline">Upgrade your plan.</Link>
+          </p>
+        )}
+      </div>
+
+      {sellingCoachResult && (
+        <div className="outputs-section bg-navy text-pearl p-6 rounded-lg shadow-lg">
+          <h2 className="text-3xl font-bold text-champagne mb-4">Selling Strategies for "{sellingCoachResult.productName}"</h2>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Optimized Offer Options</h3>
+            <div className="space-y-3">
+              {sellingCoachResult.optimizedOfferOptions.map((offer, index) => (
+                <div key={index} className="bg-champagne p-3 rounded-lg text-navy">
+                  <p className="font-semibold text-lg">{offer.title}</p>
+                  <p className="text-sm text-gray-700">{offer.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Bundle Suggestions (Increase AOV)</h3>
+            <ul className="list-disc list-inside text-pearl text-md space-y-2">
+              {sellingCoachResult.bundleSuggestions.map((suggestion, index) => (
+                <li key={index}>{suggestion}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Upsell Ideas (Add-ons & Premium)</h3>
+            <ul className="list-disc list-inside text-pearl text-md space-y-2">
+              {sellingCoachResult.upsellIdeas.map((idea, index) => (
+                <li key={index}>{idea}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Messaging Angles</h3>
+            <div className="space-y-3">
+              {sellingCoachResult.messagingAngles.map((angle, index) => (
+                <div key={index} className="bg-champagne p-3 rounded-lg text-navy">
+                  <p className="font-semibold">{angle.type}</p>
+                  <p className="text-sm text-gray-700">{angle.copy}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Objection Handling Snippets</h3>
+            <ul className="list-disc list-inside text-pearl text-md space-y-2">
+              {sellingCoachResult.objectionHandlingSnippets.map((snippet, index) => (
+                <li key={index}>{snippet}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-pearl mb-3">Value Framing ("Why it costs what it costs")</h3>
+            <div className="bg-champagne p-3 rounded-lg text-navy">
+              <p className="text-sm text-gray-700">{sellingCoachResult.valueFramingCopy}</p>
+            </div>
+          </div>
+
+          <Button variant="ghost" onClick={() => setSellingCoachResult(null)} className="text-pearl hover:bg-gray-700 mt-4">
+            Clear Results
+          </Button>
+        </div>
+      )}
+    </Layout>
+  );
+};
