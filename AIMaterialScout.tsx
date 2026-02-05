@@ -1,0 +1,319 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Layout } from '../../components/Layout';
+import { Input } from '../../components/Input';
+import { Button } from '../../components/Button';
+import { Material } from '../../types';
+import { supabaseService } from '../../services/supabaseService';
+import { tavilyService } from '../../services/tavilyService';
+import { useUser } from '../../App';
+import { CREDIT_COSTS } from '../../constants';
+import { Link } from 'react-router-dom';
+import { geminiService } from '../../services/geminiService';
+
+interface MaterialSearchResult {
+  materialId: string;
+  materialName: string;
+  currentCost: number;
+  currentSupplier: string | null;
+  foundOptions: {
+    name: string;
+    price: number;
+    unit: string;
+    supplier: string;
+    url: string;
+    estimatedSavings: number;
+    description: string;
+  }[];
+}
+
+export const AIMaterialsScout: React.FC = () => {
+  const { user, credits, fetchUserCredits, updateUserCredits, loading: userLoading } = useUser();
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  const [searchTolerance, setSearchTolerance] = useState<number>(5); // % tolerance for "near match"
+  const [searchResults, setSearchResults] = useState<MaterialSearchResult[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [materialSearchText, setMaterialSearchText] = useState('');
+  const [activeSearches, setActiveSearches] = useState<Set<string>>(new Set()); // To track concurrent searches
+
+  const fetchMaterials = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingSearch(true);
+    const { data, error } = await supabaseService.getMaterials(user.id);
+    if (error) {
+      console.error('Error fetching materials:', error);
+    } else if (data) {
+      setMaterials(data);
+    }
+    setLoadingSearch(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user && !userLoading) {
+      fetchMaterials();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userLoading]);
+
+  const handleSearchForMaterial = async (material: Material) => {
+    if (!user?.id) return;
+    if (activeSearches.has(material.id)) return; // Prevent duplicate concurrent searches
+
+    if (credits < CREDIT_COSTS.AI_SEARCH) {
+      alert('Not enough credits for AI search. Please upgrade your plan or earn more credits.');
+      return;
+    }
+
+    setActiveSearches(prev => new Set(prev).add(material.id));
+    setLoadingSearch(true); // Still show global loading, but also per-item state if needed
+
+    try {
+      await updateUserCredits(credits - CREDIT_COSTS.AI_SEARCH); // Deduct credit for search
+
+      const searchQuery = `cheaper ${material.name} ${material.unit_of_measurement} near me, or online suppliers for ${material.name} price comparison`;
+
+      const tavilyResponse = await tavilyService.search(searchQuery, true); // Set to true for more detailed results
+      const searchContent = tavilyResponse?.results.map(r => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`).join('\n---\n') || '';
+
+      if (!searchContent) {
+        setSearchResults(prev => [...prev, {
+          materialId: material.id,
+          materialName: material.name,
+          currentCost: material.cost_per_unit,
+          currentSupplier: material.supplier_url,
+          foundOptions: [],
+        }]);
+        alert(`No results found for ${material.name}.`);
+        return;
+      }
+
+      // Use Deepseek (Gemini API) to parse and compare results
+      const systemInstruction = `You are an AI Materials Cost Scout. Analyze the provided search results to find cheaper material options.
+      Identify exact or near matches (within a ${searchTolerance}% cost tolerance) for the material "${material.name}" (current cost: $${material.cost_per_unit.toFixed(4)} per ${material.unit_of_measurement}).
+      For each option, extract the material name, price, unit, supplier, URL, and a brief description. Calculate the estimated savings compared to the current cost.
+      Output a JSON array of objects, with each object representing a found option. If no suitable options are found, return an empty array.
+      
+      JSON Schema for each object:
+      {
+        "name": string, // Name of the material found
+        "price": number, // Price per unit
+        "unit": string, // Unit of measurement
+        "supplier": string, // Name of the supplier/retailer
+        "url": string, // URL to the product page
+        "estimatedSavings": number, // Percentage saved compared to currentCost (e.g., 10.5 for 10.5%)
+        "description": string // Brief description of the material and offer
+      }
+      `;
+
+      const prompt = `Search results for "${material.name}":\n\n${searchContent}\n\nExtract cheaper material options based on the schema.`;
+
+      const geminiResponse = await geminiService.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      let parsedOptions: any[] = [];
+      if (geminiResponse && geminiResponse.text) {
+        try {
+          parsedOptions = JSON.parse(geminiResponse.text.trim());
+        } catch (parseError) {
+          console.error('Failed to parse AI response as JSON:', parseError, geminiResponse.text);
+          // Fallback if AI doesn't return perfect JSON
+          parsedOptions = [{
+            name: `AI could not parse structured data for ${material.name}.`,
+            price: 0,
+            unit: 'N/A',
+            supplier: 'N/A',
+            url: '#',
+            estimatedSavings: 0,
+            description: `AI raw response: ${geminiResponse.text.substring(0, 200)}...`,
+          }];
+        }
+      }
+
+      const foundOptions = parsedOptions
+        .filter(option => option.price > 0 && (option.price < material.cost_per_unit * (1 - searchTolerance / 100))) // Filter based on tolerance
+        .map(option => ({
+          ...option,
+          estimatedSavings: parseFloat(((1 - (option.price / material.cost_per_unit)) * 100).toFixed(2)),
+          url: option.url || '#', // Ensure URL exists
+        }));
+
+      setSearchResults(prev => [...prev, {
+        materialId: material.id,
+        materialName: material.name,
+        currentCost: material.cost_per_unit,
+        currentSupplier: material.supplier_url,
+        foundOptions: foundOptions.sort((a,b) => b.estimatedSavings - a.estimatedSavings), // Sort by highest savings
+      }]);
+
+    } catch (error) {
+      console.error('Error in material search:', error);
+      alert('Failed to search for materials. Please try again.');
+    } finally {
+      setActiveSearches(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(material.id);
+        return newSet;
+      });
+      // Only set global loading to false if no other searches are active
+      if (activeSearches.size === 1 && activeSearches.has(material.id)) {
+        setLoadingSearch(false);
+      }
+      fetchUserCredits(); // Refresh credits
+    }
+  };
+
+  const handleApproveOption = async (materialId: string, newCost: number, newSupplierUrl: string) => {
+    if (!user?.id || !window.confirm('Are you sure you want to update this material with the new price and supplier?')) return;
+    setLoadingSearch(true); // Use global loading for update
+    try {
+      const { error } = await supabaseService.updateMaterial(materialId, {
+        cost_per_unit: parseFloat(newCost.toFixed(4)),
+        supplier_url: newSupplierUrl,
+      });
+      if (error) {
+        console.error('Error updating material:', error);
+        alert('Failed to update material.');
+      } else {
+        alert('Material updated successfully!');
+        setSearchResults(prev => prev.filter(res => res.materialId !== materialId)); // Remove from results after approval
+        fetchMaterials(); // Refresh materials list
+      }
+    } catch (error) {
+      console.error('Error approving option:', error);
+      alert('An error occurred during update.');
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  const handleDismissOption = (materialId: string) => {
+    setSearchResults(prev => prev.filter(res => res.materialId !== materialId)); // Simply remove from display
+  };
+
+  if (userLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-full">
+          <p className="text-navy text-xl">Loading AI Materials Cost Scout...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const filteredMaterials = materials.filter(m =>
+    m.name.toLowerCase().includes(materialSearchText.toLowerCase())
+  );
+
+  return (
+    <Layout className="py-8 bg-pearl">
+      <h1 className="text-4xl font-bold text-navy mb-8">AI Materials Cost Scout</h1>
+      <p className="text-lg text-gray-700 mb-6">
+        Let AI monitor and search for lower-cost material options based on your saved material list. Get alerts and approve savings.
+      </p>
+
+      <div className="card mb-8">
+        <h2 className="text-2xl font-bold text-navy mb-4">Your Materials Library</h2>
+        <Input
+          label="Search Your Materials"
+          value={materialSearchText}
+          onChange={(e) => setMaterialSearchText(e.target.value)}
+          placeholder="Type to filter materials..."
+          className="mb-4"
+        />
+        <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
+          {filteredMaterials.length === 0 && <p className="text-gray-600">No materials found matching your search.</p>}
+          {filteredMaterials.map(material => {
+            const isSearching = activeSearches.has(material.id);
+            const hasSearchResult = searchResults.some(res => res.materialId === material.id);
+            return (
+              <div key={material.id} className="bg-champagne p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center text-navy shadow-sm">
+                <div>
+                  <p className="font-semibold text-lg">{material.name}</p>
+                  <p className="text-sm text-gray-700">Current Cost: ${material.cost_per_unit.toFixed(4)} per {material.unit_of_measurement}</p>
+                  {material.supplier_url && <a href={material.supplier_url} target="_blank" rel="noopener noreferrer" className="text-sage text-sm hover:underline">Current Supplier</a>}
+                </div>
+                <Button
+                  onClick={() => handleSearchForMaterial(material)}
+                  isLoading={isSearching}
+                  variant="primary"
+                  disabled={isSearching || hasSearchResult || credits < CREDIT_COSTS.AI_SEARCH}
+                  className="mt-2 sm:mt-0"
+                >
+                  {isSearching ? 'Searching...' : hasSearchResult ? 'Results Found' : 'Find Cheaper (Costs 2 Credits)'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+        {credits < CREDIT_COSTS.AI_SEARCH && (
+          <p className="text-red-500 text-sm mt-4">
+            You need at least {CREDIT_COSTS.AI_SEARCH} credits for an AI search.
+            <Link to="/pricing" className="ml-1 underline">Upgrade your plan.</Link>
+          </p>
+        )}
+      </div>
+
+      {searchResults.length > 0 && (
+        <div className="card">
+          <h2 className="text-2xl font-bold text-navy mb-4">AI Material Scout Results</h2>
+          <p className="text-gray-700 mb-6">
+            Review potential savings. Approve an option to update your material's cost and supplier.
+          </p>
+          <div className="space-y-6">
+            {searchResults.map((result) => (
+              <div key={result.materialId} className="bg-navy text-pearl p-6 rounded-lg shadow-lg">
+                <h3 className="text-xl font-bold text-champagne mb-3">
+                  {result.materialName} (Current: ${result.currentCost.toFixed(4)} / {materials.find(m => m.id === result.materialId)?.unit_of_measurement})
+                </h3>
+                {result.foundOptions.length === 0 ? (
+                  <p className="text-gray-300">No cheaper options found within {searchTolerance}% tolerance.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {result.foundOptions.map((option, index) => (
+                      <div key={index} className="bg-champagne text-navy p-4 rounded-lg shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center">
+                        <div className="flex-grow mb-4 lg:mb-0">
+                          <p className="font-semibold text-lg">{option.name}</p>
+                          <p className="text-gray-700">Price: <span className="text-sage font-bold">${option.price.toFixed(4)}</span> per {option.unit}</p>
+                          <p className="text-gray-700">Supplier: {option.supplier}</p>
+                          <p className="text-gray-700">Estimated Savings: <span className="text-green-600 font-bold">{option.estimatedSavings.toFixed(2)}%</span></p>
+                          <p className="text-sm text-gray-600 mt-1">{option.description}</p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <a href={option.url} target="_blank" rel="noopener noreferrer">
+                            <Button variant="secondary" className="bg-sage text-pearl hover:bg-sage/80 px-4 py-2 text-sm">
+                              View Offer
+                            </Button>
+                          </a>
+                          <Button
+                            onClick={() => handleApproveOption(result.materialId, option.price, option.url)}
+                            variant="primary"
+                            className="bg-navy text-champagne hover:bg-navy/80 px-4 py-2 text-sm"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleDismissOption(result.materialId)}
+                            variant="ghost"
+                            className="text-red-600 hover:bg-red-100 px-4 py-2 text-sm"
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+};
