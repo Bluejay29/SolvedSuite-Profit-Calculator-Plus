@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase/client';
-import AppLayout from '../components/AppLayout';
+import AppLayout from './AppLayout';
 import LoginForm from '../components/auth/LoginForm';
 import SignupForm from '../components/auth/SignUpForm';
 

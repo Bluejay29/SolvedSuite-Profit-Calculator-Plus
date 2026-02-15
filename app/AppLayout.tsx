@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase/client';
-import Dashboard from './Dashboard';
-import MaterialCalculator from './MaterialCalculator';
-import ProfitCalculator from './ProfitCalculator';
-import ProductManager from './ProductManager';
-import PriceMonitor from './PriceMonitor';
+import Dashboard from '../components/Dashboard';
+import MaterialCalculator from '../components/MaterialCalculator';
+import ProfitCalculator from '../components/ProfitCalculator';
+import ProductManager from '../components/ProductManager';
+import PriceMonitor from '../components/PriceMonitor';
 
 interface AppLayoutProps {
   children?: React.ReactNode;

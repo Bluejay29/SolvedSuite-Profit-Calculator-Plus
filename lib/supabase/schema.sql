@@ -57,18 +57,6 @@ CREATE TABLE calculations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Subscriptions table
-CREATE TABLE subscriptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT,
-  status TEXT NOT NULL CHECK (status IN ('active', 'canceled', 'past_due', 'trialing')),
-  current_period_end TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Row Level Security (RLS) Policies
 
 -- Enable RLS on all tables
@@ -76,7 +64,6 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE price_check_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calculations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Products policies
 CREATE POLICY "Users can view their own products"
@@ -173,26 +160,11 @@ CREATE POLICY "Users can delete their own calculations"
   ON calculations FOR DELETE
   USING (auth.uid() = user_id);
 
--- Subscriptions policies
-CREATE POLICY "Users can view their own subscription"
-  ON subscriptions FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own subscription"
-  ON subscriptions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own subscription"
-  ON subscriptions FOR UPDATE
-  USING (auth.uid() = user_id);
-
 -- Indexes for better performance
 CREATE INDEX idx_products_user_id ON products(user_id);
 CREATE INDEX idx_materials_product_id ON materials(product_id);
 CREATE INDEX idx_price_check_history_material_id ON price_check_history(material_id);
 CREATE INDEX idx_calculations_user_id ON calculations(user_id);
-CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
-CREATE INDEX idx_subscriptions_stripe_customer_id ON subscriptions(stripe_customer_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -206,10 +178,5 @@ $$ LANGUAGE plpgsql;
 -- Triggers to automatically update updated_at
 CREATE TRIGGER update_products_updated_at
   BEFORE UPDATE ON products
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_subscriptions_updated_at
-  BEFORE UPDATE ON subscriptions
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
