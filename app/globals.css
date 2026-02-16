@@ -1,24 +1,20 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500&display=swap');
 
 :root {
-  /* SolvedSuite Brand Colors */
-  --primary: #1A2B3C;
-  --primary-dark: #0F1A24;
-  --primary-light: #2A3B4C;
+  /* SolvedSuite Maker's Profit Hub - Set in Stone */
+  --navy: #000068;
+  --pearl: #FFFDFA;
+  --sage: #BCB88A;
+  --champagne: #F3E5AB;
+
+  /* Premium Mapping */
+  --primary: var(--navy);
+  --secondary: var(--sage);
+  --accent: var(--champagne);
   
-  --secondary: #8DAA91;
-  --secondary-dark: #7A9A7E;
-  --secondary-light: #A0BAA4;
-  
-  --accent: #D4AF37;
-  --accent-dark: #C19F27;
-  --accent-light: #E0BF47;
-  
-  --background: #F9F9F9;
-  --background-dark: #EFEFEF;
-  --background-light: #FFFFFF;
-  
-  --foreground: #1A2B3C;
+  --background: var(--navy);
+  --foreground: var(--pearl);
 }
 
 @theme inline {
@@ -27,6 +23,9 @@
   --color-accent: var(--accent);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-sage: var(--sage);
+  --color-pearl: var(--pearl);
+  --color-champagne: var(--champagne);
 }
 
 * {
@@ -38,15 +37,16 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Inter is our clean pairing for numbers and small text */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+  /* Playfair Display for that high-end, premium feel */
+  font-family: 'Playfair Display', serif;
   font-weight: 600;
   line-height: 1.2;
-  color: var(--primary);
+  color: var(--champagne);
 }
