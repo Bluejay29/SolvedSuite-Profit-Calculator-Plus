@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import RootLayoutClient from "./RootLayoutClient"; // We will create this next to handle the "brain"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,16 +28,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} antialiased bg-navy text-pearl`}>
-        <div className="flex min-h-screen">
-          {/* This is the foundation for your Vertical Sidebar on the left */}
-          <aside className="w-64 border-r border-champagne/20 bg-navy hidden md:block">
-            {/* We will build the Sidebar navigation in the next step */}
-          </aside>
-          
-          <main className="flex-1">
-            {children}
-          </main>
-        </div>
+        {/* We move the login logic to a "Client" file to keep the Metadata working */}
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );
