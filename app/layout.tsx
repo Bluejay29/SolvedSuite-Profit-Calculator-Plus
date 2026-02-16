@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Montserrat } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,16 +8,15 @@ const inter = Inter({
   display: "swap",
 });
 
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "SolvedSuite Profit Calculator - AI-Powered Pricing for Handmade Creators",
-  description: "Stop guessing. Start profiting. The AI-powered profit calculator that helps handmade creators optimize pricing, reduce material costs, and increase profits.",
-  keywords: ["handmade pricing", "craft calculator", "profit calculator", "Etsy pricing", "handmade business", "AI pricing tool"],
+  title: "SolvedSuite Maker's Profit Hub",
+  description: "The premium AI-powered profit suite for handmade and service-based business owners.",
 };
 
 export default function RootLayout({
@@ -27,8 +26,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
-        {children}
+      <body className={`${inter.variable} ${playfair.variable} antialiased bg-navy text-pearl`}>
+        <div className="flex min-h-screen">
+          {/* This is the foundation for your Vertical Sidebar on the left */}
+          <aside className="w-64 border-r border-champagne/20 bg-navy hidden md:block">
+            {/* We will build the Sidebar navigation in the next step */}
+          </aside>
+          
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
