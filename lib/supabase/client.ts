@@ -1,6 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// This version uses cookies to "remember" the user so you don't have to log in every time
+export const supabase = createClientComponentClient()
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// This allows other files to create their own connection if needed
+export const createClient = () => createClientComponentClient()
