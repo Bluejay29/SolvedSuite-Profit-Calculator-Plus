@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase/client';
-import AppLayout from './AppLayout';
 import LoginForm from '../components/auth/LoginForm';
 import SignupForm from '../components/auth/SignUpForm';
+import Sidebar from '../components/Sidebar'; 
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -13,11 +13,10 @@ export default function Home() {
 
   useEffect(() => {
     checkUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
       setLoading(false);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -29,96 +28,83 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-navy flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-champagne"></div>
       </div>
     );
   }
 
+  // If logged in, show the Dashboard with the Sidebar
   if (user) {
-    return <AppLayout />;
+    return (
+      <div className="flex min-h-screen bg-navy">
+        <aside className="w-64 border-r border-champagne/20 hidden md:block">
+          <Sidebar />
+        </aside>
+        <main className="flex-1 p-8 text-pearl">
+           {/* Your Dashboard content would go here */}
+           <h1 className="font-playfair text-3xl text-champagne">Welcome to the Profit Hub</h1>
+        </main>
+      </div>
+    );
   }
 
+  // If not logged in, show the Premium Login Screen
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto pt-16 pb-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          {/* Logo and Header */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">SolvedSuite</h1>
-            <p className="text-gray-600 mt-2">AI-Powered Profit Calculator for Handmade Sellers</p>
+    <div className="min-h-screen bg-navy flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-navy border border-champagne/20 rounded-2xl shadow-2xl p-8">
+          {/* Premium Header */}
+          <div className="text-center mb-10">
+            <h1 className="font-playfair text-4xl text-champagne mb-2">SolvedSuite</h1>
+            <p className="font-inter text-pearl/60 uppercase tracking-widest text-xs">Maker's Profit Hub</p>
           </div>
 
-          {/* Auth Toggle */}
-          <div className="flex mb-6">
+          {/* Auth Toggle - Pearl & Sage style */}
+          <div className="flex mb-8 border-b border-pearl/10">
             <button
               onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 text-center font-medium transition-colors ${
-                isLogin
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+              className={`flex-1 py-3 text-center font-medium transition-all ${
+                isLogin ? 'text-champagne border-b-2 border-champagne' : 'text-pearl/40 hover:text-pearl'
               }`}
             >
               Sign In
             </button>
             <button
               onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 text-center font-medium transition-colors ${
-                !isLogin
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+              className={`flex-1 py-3 text-center font-medium transition-all ${
+                !isLogin ? 'text-champagne border-b-2 border-champagne' : 'text-pearl/40 hover:text-pearl'
               }`}
             >
-              Sign Up
+              Join the Hub
             </button>
           </div>
 
           {/* Forms */}
-          {isLogin ? (
-            <LoginForm />
-          ) : (
-            <SignupForm />
-          )}
+          <div className="premium-form-container">
+            {isLogin ? <LoginForm /> : <SignupForm />}
+          </div>
 
-          {/* Benefits */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Why join SolvedSuite?</h3>
-            <ul className="space-y-2 text-sm text-gray-600">
+          {/* Benefits - Styled in Sage and Pearl */}
+          <div className="mt-10 pt-6 border-t border-pearl/10">
+            <h3 className="font-playfair text-sage mb-4">Why the Profit Hub?</h3>
+            <ul className="space-y-3 text-sm text-pearl/80 font-inter">
               <li className="flex items-center">
-                <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Save $500-1,600/month with AI insights
+                <span className="text-sage mr-2">✓</span> Save $500-1,600/month with AI insights
               </li>
               <li className="flex items-center">
-                <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Accurate profit calculations with marketplace fees
+                <span className="text-sage mr-2">✓</span> Marketplace fee optimization
               </li>
               <li className="flex items-center">
-                <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Track your savings over time
+                <span className="text-sage mr-2">✓</span> Professional profit tracking
               </li>
             </ul>
           </div>
         </div>
-
-        {/* Pricing Note */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Free to start • $29/month after trial
-          </p>
-        </div>
+        
+        <p className="mt-8 text-center text-pearl/40 text-xs tracking-widest uppercase">
+          Free to start • $29/month after trial
+        </p>
       </div>
     </div>
   );
