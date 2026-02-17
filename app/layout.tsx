@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import RootLayoutClient from "./RootLayoutClient"; // We will create this next to handle the "brain"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,8 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} antialiased bg-navy text-pearl`}>
-        {/* We move the login logic to a "Client" file to keep the Metadata working */}
-        <RootLayoutClient>{children}</RootLayoutClient>
+        {children}
       </body>
     </html>
   );
